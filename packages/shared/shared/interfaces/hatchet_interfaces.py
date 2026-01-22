@@ -22,6 +22,7 @@ class AutodocInput(BaseModel):
     document_goal: str | None
     user_context: str | None
     content_kind: ContentKind | None
+    organization_id: str | None = None  # For checkpoint bucket computation
 
 
 class HandleGithubEventsInput(BaseModel):
@@ -49,6 +50,14 @@ class HandleBitbucketEventsInput(BaseModel):
 
 
 class HandleAzureDevopsEventsInput(BaseModel):
+    installation_id: str | None
+    org_id: str
+    repos_added: list[dict]
+    repos_deleted: list[dict]
+    repos_pushed: list[dict]
+
+
+class HandleBitbucketDCEventsInput(BaseModel):
     installation_id: str | None
     org_id: str
     repos_added: list[dict]

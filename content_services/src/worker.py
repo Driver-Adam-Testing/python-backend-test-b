@@ -29,12 +29,17 @@ from workflows.inspector_workflow import inspector_task
 from workflows.onboarding_workflows import (
     connect_repos_for_installation_task,
     handle_azure_devops_events_task,
+    handle_bitbucket_dc_events_task,
     handle_bitbucket_events_task,
     handle_github_events_task,
     handle_gitlab_events_task,
     run_codebase_connection_task,
 )
 from workflows.pdf_processing_workflow import pdf_processing_task
+
+# Suppress noisy HTTP/AWS library loggers before basicConfig
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("botocore").setLevel(logging.WARNING)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -74,6 +79,7 @@ base_workflow_set = [
     scheduled_auth0_sync_task,
     handle_github_events_task,
     handle_azure_devops_events_task,
+    handle_bitbucket_dc_events_task,
     handle_bitbucket_events_task,
     handle_gitlab_events_task,
     connect_repos_for_installation_task,
@@ -104,15 +110,18 @@ def main() -> None:
     match worker_type:
         case HatchetWorkerType.ANALYTICS:
             workflows = analytics_workflow_set
+            slots = 2
         case HatchetWorkerType.HEAVY:
             workflows = heavy_workflow_set
+            slots = 250
         case HatchetWorkerType.BASE:
             workflows = base_workflow_set
+            slots = 250
         case _:
             raise ValueError(f"Unknown worker type: {worker_type}")
     worker = hatchet.worker(
         f"{worker_type}-worker",
-        slots=250,
+        slots=slots,
         workflows=workflows,
     )
     _wrap_signal_handler(worker, worker_type)

@@ -171,33 +171,19 @@ class BitbucketProvider(GitProviderInterface):
             repos_data = self.api_strategy.list_repositories(workspace, access_token)
             repos = []
             for repo in repos_data:
-                # Fetch latest commit for each repo if needed
-                latest_commit = None
-                # TODO: This seemed to be causing a 429 for workspaces with
-                # many repos. Additional testing is needed to confirm this.
-                # try:
-                #     commit_hash = self.api_strategy.get_latest_commit(
-                #         workspace, repo["slug"], access_token
-                #     )
-                #     latest_commit = {"id": commit_hash}
-                # except Exception as e:
-                #     logger.warning(
-                #         f"Failed to fetch latest commit for {repo['name']}: {e}"
-                #     )
-
                 repos.append(
                     GitRepository(
                         provider_name=str(installation.git_provider_app.provider_kind),
                         provider_kind=installation.git_provider_app.provider_kind,
-                        org=repo["workspace"]["name"],
+                        org=repo["workspace"]["slug"],
                         installation_id=str(installation.id),
                         repo_name=repo["name"],
                         last_updated=repo.get("updated_on"),
                         default_branch=repo["mainbranch"]["name"],  #
-                        latest_commit=latest_commit,
+                        latest_commit=None,  # To be fetched on-demand
                         metadata={
                             "id": repo["uuid"],  # Store repo ID in metadata
-                            "workspace": repo["workspace"]["name"],
+                            "workspace": repo["workspace"]["slug"],
                             "slug": repo["slug"],
                             "project_key": repo.get("project", {}).get("key"),
                             "project_name": repo.get("project", {}).get("name"),
@@ -335,6 +321,17 @@ class BitbucketProvider(GitProviderInterface):
             logger.error(f"Failed to register webhook: {e}")
             raise
 
+    def deregister_webhook(
+        self,
+        installation: GitProviderAppInstallation,
+        webhook_id: str,
+    ) -> None:
+        """Deregister webhook - not implemented for Bitbucket Cloud"""
+        raise NotImplementedError(
+            "Webhook deregistration is not yet implemented for Bitbucket Cloud. "
+            "Please delete webhooks manually through the Bitbucket UI."
+        )
+
     def fetch_secrets_by_id(self, installation_id: str) -> dict:
         """Fetch secrets by installation ID"""
         secret_key = format_secret_name(APP_INSTALL_WAT_NAME_PREFIX, installation_id)
@@ -398,9 +395,14 @@ class BitbucketProvider(GitProviderInterface):
         # Extract repository info
         repo_name = repository.get("name")
         repo_id = repository.get("uuid")
-        workspace = repository["workspace"]["name"]
+        workspace = repository["workspace"]["slug"]
         full_name = repository.get("full_name")
-        repo_slug = repository.get("slug", repo_name)  # Use name as fallback
+        # Extract slug from full_name since webhook payloads don't include repository.slug
+        repo_slug = repository.get("slug")
+        if not repo_slug and full_name and "/" in full_name:
+            repo_slug = full_name.split("/", 1)[1]
+        if not repo_slug:
+            repo_slug = repo_name  # Last resort fallback
 
         message = {"message": ""}
 
@@ -466,7 +468,7 @@ class BitbucketProvider(GitProviderInterface):
                                 "id": repo_id,  # Add the repo UUID to metadata
                                 "uuid": repo_id,  # Also add as uuid for compatibility
                                 "workspace": workspace,
-                                "slug": repo_name,
+                                "slug": repo_slug,
                             },
                             "installation_id": installation_id,
                             "latest_commit": {
