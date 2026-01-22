@@ -138,10 +138,12 @@ async def run_autodoc(
 
         match config_kind:
             case AutoDocConfigKind.ADI_DRIVER:
-                config = AutoDocCfg.from_file("/autodocs_configs/adi_driver_page.toml")
+                config = AutoDocCfg.from_file(
+                    "/app/src/autodocs/src/configs/adi_driver_readme.toml"
+                )
             case AutoDocConfigKind.ARCHITECTURE:
                 config = AutoDocCfg.from_file(
-                    "/autodocs_configs/architecture_modal.toml"
+                    "/app/src/autodocs/src/configs/architecture_modal.toml"
                 )
             case AutoDocConfigKind.CUSTOM:
                 if org_id:
@@ -158,16 +160,16 @@ async def run_autodoc(
                         s3.download_file(
                             bucket,
                             key,
-                            "/autodocs_configs/custom_config.toml",
+                            "/app/src/autodocs/src/configs/custom_config.toml",
                         )
                     else:
                         raise ValueError(
                             f"GuardDuty tag not found for bucket {bucket} and key {key}. "
                         )
                     config = AutoDocCfg.from_file(
-                        "/autodocs_configs/custom_config.toml"
+                        "/app/src/autodocs/src/configs/custom_config.toml"
                     )
-                    with open("/autodocs_configs/custom_config.toml") as f:
+                    with open("/app/src/autodocs/src/configs/custom_config.toml") as f:
                         toml_content = f.read()
 
             case AutoDocConfigKind.FROM_DOCUMENT_GOAL:
